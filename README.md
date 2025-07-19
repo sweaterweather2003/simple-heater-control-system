@@ -17,7 +17,7 @@ This entire coding has been done to fit Arduino IDE and not ESP-IDF, using C++ l
 * **State Indicator LED**
 * **Buzzer**
 
-##The Code:
+## The Code:
 
 * **State Machine:** Five states based on `temp` compared against thresholds can be seen on adjusting the dial of the potentiometer:
 
