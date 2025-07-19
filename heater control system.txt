@@ -1,0 +1,114 @@
+#include <Arduino.h>
+#include <math.h>
+
+enum State {Idle, Heating, Stabilizing, TargetReached, Overheat};
+State currentState = Idle;
+
+const int potPin = A1;         // Analog input for potentiometer (test override)
+const int ntcPin = A0;         // Analog input for NTC module
+const int heaterPin = 13;      // LED represents heater
+const int stateLEDPin = 12;    // LED indicates system state
+const int buzzerPin = 11;      // Buzzer for overheat alert
+
+const float BETA = 3950.0;
+const float R_SERIES = 10000.0;
+const float nominalResistance = 10000.0;
+const float nominalTemp = 25.0;
+
+const float targetTemp   = 25.0;  // °C setpoint
+const float tolerance    = 2.0;   // ±2°C dead‑band
+const float overheatTemp = 35.0;  // °C overheat threshold
+
+unsigned long previousMillis = 0;
+const unsigned long interval = 1000; // 1 second interval
+
+void setup() {
+  pinMode(heaterPin, OUTPUT);
+  pinMode(stateLEDPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  Serial.begin(9600);
+}
+
+float readPotTemperature() {
+  int raw = analogRead(potPin);             // 0–1023
+  float temp = map(raw, 0, 1023, 150, 450) / 10.0; // mapping to temps between 15–45°C
+  return temp;
+}
+
+float readNTCTemperature() {
+  int raw = analogRead(ntcPin);
+  float voltage = raw * (5.0 / 1023.0);
+  float Rntc = R_SERIES * ((5.0 / voltage) - 1.0);
+  float tempK = 1.0 / ((1.0/(nominalTemp + 273.15)) + (1.0/BETA) * log(Rntc/nominalResistance));
+  return tempK - 273.15;
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis < interval) return;
+  previousMillis = currentMillis;
+
+    float realTemp = readNTCTemperature();
+  float potTemp  = readPotTemperature();
+
+  float temp = max(realTemp, potTemp);
+
+  Serial.print("RealTemp: "); Serial.print(realTemp); Serial.print("C");Serial.print(" UsedTemp: "); Serial.print(temp); Serial.println("C");
+
+  if (temp < targetTemp - tolerance) {
+    currentState = Idle;
+    digitalWrite(heaterPin, LOW);
+    digitalWrite(stateLEDPin, LOW);
+    digitalWrite(buzzerPin, LOW);
+    Serial.println("State: Idle");
+    Serial.println("Action: System Idle");
+  }
+  else if (temp < targetTemp) {
+    currentState = Heating;
+    digitalWrite(heaterPin, HIGH);
+    digitalWrite(stateLEDPin, HIGH);
+    digitalWrite(buzzerPin, LOW);
+    Serial.println("State: Heating");
+    Serial.println("Action: Heater ON");
+  }
+  else if (temp < targetTemp + tolerance) {
+    currentState = Stabilizing;
+    digitalWrite(heaterPin, LOW);
+    digitalWrite(stateLEDPin, LOW);
+    digitalWrite(buzzerPin, LOW);
+    Serial.println("State: Stabilizing");
+    Serial.println("Action: Heater OFF");
+  }
+  else if (temp < overheatTemp) {
+    currentState = TargetReached;
+    digitalWrite(heaterPin, LOW);
+    digitalWrite(stateLEDPin, LOW);
+    digitalWrite(buzzerPin, LOW);
+    Serial.println("State: Target Reached");
+    Serial.println("Action: Target Temp Reached");
+  }
+  else {
+    currentState = Overheat;
+    digitalWrite(heaterPin, LOW);
+    // Blink state LED
+    digitalWrite(stateLEDPin, (millis() / 500) % 2);
+    // Buzzer shrieks
+    for (int i = 0; i < 5; i++) {
+      tone(buzzerPin, 2000); delay(100);
+      noTone(buzzerPin);       delay(100);
+    }
+    Serial.println("State: OVERHEATING");
+    Serial.println("!!! OVERHEATING ALARM !!!");
+  }
+
+  Serial.print("BLE ADV => State=");
+  switch (currentState) {
+    case Idle:          Serial.print("Idle"); break;
+    case Heating:       Serial.print("Heating"); break;
+    case Stabilizing:   Serial.print("Stabilizing"); break;
+    case TargetReached: Serial.print("TargetReached"); break;
+    case Overheat:      Serial.print("Overheat"); break;
+  }
+  Serial.print(", Temp="); Serial.print(temp); Serial.println("C");
+  Serial.println("-----------------------------");
+}
