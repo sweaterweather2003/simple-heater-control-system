@@ -13,7 +13,7 @@ const int buzzerPin = 11;      // Buzzer for overheat alert
 const float BETA = 3950.0;
 const float R_SERIES = 10000.0;
 const float nominalResistance = 10000.0;
-const float nominalTemp = 25.0;
+const float nominalTemp = 10.0;
 
 const float targetTemp   = 25.0;  // °C setpoint
 const float tolerance    = 2.0;   // ±2°C dead‑band
