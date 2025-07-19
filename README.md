@@ -37,7 +37,7 @@ This entire coding has been done to fit Arduino IDE and not ESP-IDF, using C++ l
   State: <STATE>
   Action: <ACTION>
   BLE ADV => State=<STATE>, Temp=ZZ.Z C
-  ```
+  
 
 ## Setting Up
 
